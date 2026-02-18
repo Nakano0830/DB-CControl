@@ -1,0 +1,132 @@
+:root {
+    --primary-color: #2c3e50;
+    --accent-color: #3498db;
+    --bg-color: #f4f7f6;
+    --code-bg: #1e1e1e;
+}
+
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: var(--bg-color);
+    margin: 0;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+header {
+    background: var(--primary-color);
+    color: white;
+    padding: 40px 0;
+    text-align: center;
+}
+
+h2 {
+    border-left: 5px solid var(--accent-color);
+    padding-left: 15px;
+    margin-top: 40px;
+}
+
+.code-block {
+    background: var(--code-bg);
+    color: #dcdcdc;
+    padding: 15px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.lab-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.terminal-box {
+    background: #fff;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.quiz-card {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.answer {
+    display: none;
+    background: #e8f4fd;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 4px;
+}
+
+.ans-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+@media (max-width: 600px) {
+    .lab-grid { grid-template-columns: 1fr; }
+}
+
+.accent {
+    color: red;
+    font-weight: bold;
+    
+}
+
+/* --- 画像表示用のカスタマイズ --- */
+
+/* 画像を囲むコンテナ：中央寄せやキャプションのために使用 */
+.figure {
+    margin: 30px auto;
+    text-align: center;
+    max-width: 100%;
+}
+
+/* 画像本体の基本スタイル */
+.figure img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* 軽い影で浮き上がらせる */
+    border: 1px solid #ddd;
+    transition: transform 0.3s ease; /* マウスホバー時の動き */
+}
+
+/* クリックして拡大したくなるような演出（任意） */
+.figure img:hover {
+    transform: scale(1.02);
+}
+
+/* 画像の下に表示する説明文（キャプション） */
+.figcaption {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: #666;
+    font-style: italic;
+}
+
+/* 実行結果のスクショなど、枠線を目立たせたい場合用のクラス */
+.img-screenshot {
+    border: 2px solid var(--primary-color) !important;
+}
+
+/* 概念図など、背景を白く保ちたい透過画像用 */
+.img-diagram {
+    background-color: white;
+    padding: 10px;
+}

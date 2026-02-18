@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データベース工学課題：同時実行制御</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>PostgreSQL 17 同時実行制御 実験ガイド</h1>
+            <p class="subtitle">IoTデータの整合性と隔離レベルを学ぶ</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section id="intro">
+            <h2>1. はじめに</h2>
+            <p>　IoTデバイスから大量のデータが同時に送られてきたとき、データベース内部では何が起きているのでしょうか？本記事では、PostgreSQL 17を用いて、データの不整合が起きる瞬間とその対策を実験を通して学びます。</p>
+            <p>　特に、同時実行制御の基本概念である「ロストアップデート」と「隔離レベル」について深掘りします。実験を通じて、データベースの動作原理を理解し、実際のシステム設計に役立つ知識を身につける事を目的とします。</p>
+        </section>
+
+        <section id="env">
+            <h2>2. 基本的な概念</h2>
+            <p>　まず、同時実行制御の基本的な概念から学びましょう。</p>
+            <p>　データベースにおける同時実行制御とは、複数のトランザクションが同時にデータベースにアクセスする際に、データの整合性を保つための仕組みです。授業内では、私たち一人一人のトランザクションだけで完結したデータベースの操作を行ってきていましたが、
+                実際の運用において、いつも一人の人だけが操作を行うことはほとんどあり得ません。</p>
+            <p>　そういった際に、必ず問題になる事が同時期に複数のトランザクションがデータを更新することです。この問題を<span class="accent">「ロストアップデート」</span>と呼びます。
+                「ロストアップデート」が発生することで、データベース管理システム(DBMS)のトランザクション処理におけるACID特性の一つである<span class="accent">「一貫性(Consistency)」</span>が損なわれてしまいます。この問題を防ぐために、データベースでは同時実行制御の仕組みが必須になっています。</p>
+            <p>　さて、そんな同時実行制御を実現するための仕組みの一つに<span class="accent">「排他制御」</span>というものがあります。排他制御とは、誰かがデータベースに対して更新処理を行っている際には、他のトランザクションがそのデータにアクセスできないようにする仕組みです。
+                ここではそんな排他制御の代表的な方法である。<span class="accent">「ロック」</span>について学びます。</p>
+            <p>　まずロックには<span class="accent">「楽観的ロック」と「悲観的ロック」</span>という二つの主要なアプローチの仕方が存在します。</p>
+                <span class="accent">「排他ロック」「共有ロック」</span>について復習します。</p>
+            
+            <div class="figure">
+            <img src="images/test.png" alt="隔離レベルの図解" class="img-diagram">
+            <p class="figcaption">図1：トランザクション隔離レベルによる不整合の許容範囲</p>
+            </div>
+
+            <div class="quiz-card">
+                <p><strong>復習問題</strong></p>
+                <p><strong>問1:</strong> データベースにおいて、複数のトランザクションが同時に同じデータを更新した場合に発生する問題は？</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans1')">答えを表示</button>
+                <p id="ans1" class="answer">「ロストアップデート」または「更新消失」</p>
+            
+                <p><strong>問2:</strong> DBMSのACID特性において、トランザクションの整合性を保証するための性質は？次の A~D から一つを選べ。</p>
+                <ul>
+                    <li>A:「原子性(Atomicity)」</li>
+                    <li>B:「一貫性(Consistency)」</li>
+                    <li>C:「独立性(Isolation)」</li>
+                    <li>D:「耐久性(Durability)」</li>
+                </ul>
+                <button class="ans-btn" onclick="toggleAnswer('ans2')">答えを表示</button>
+                <p id="ans2" class="answer">B:「一貫性(Consistency)」 ACID特性は基本情報技術者試験などでも出ることのあるものです。この機会に復習しておくと良いかもしれません。</p>
+            </div>
+
+        </section>
+
+        <section id="env">
+            <h2>2. 実験環境の準備</h2>
+            <p>以下のコマンドを使用して、実験用のDocker環境を起動してください。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>docker compose up -d</code></pre>
+            </div>
+        </section>
+
+        <section id="experiment">
+            <h2>3. 実験：ロストアップデートを体験する</h2>
+            <p>2つのターミナルを左右に並べて、以下の順番でSQLを実行してください。</p>
+            
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>BEGIN;
+-- 現在の値を読み込む
+SELECT status_value FROM devices WHERE id = 1;</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>BEGIN;
+-- Aが読んだ直後にBも読み込む
+SELECT status_value FROM devices WHERE id = 1;</code></pre>
+                    </div>
+                </div>
+            </div>
+            
+        </section>
+
+        <section id="quiz">
+            <h2>4. 理解度チェック</h2>
+            <div class="quiz-card">
+                <p><strong>問1:</strong> Repeatable Read隔離レベルで、他のトランザクションが更新したデータを読み込もうとするとどうなるか？</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans1')">答えを表示</button>
+                <p id="ans1" class="answer">PostgreSQLでは、読み取り時点のスナップショットを維持するため、他のコミット済みデータは見えません。</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Your Name - データベース工学 課題</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
