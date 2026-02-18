@@ -82,6 +82,7 @@ h2 {
     .lab-grid { grid-template-columns: 1fr; }
 }
 
+/* 強調用のの基本スタイル */
 .accent {
     color: red;
     font-weight: bold;
@@ -108,9 +109,9 @@ h2 {
 }
 
 /* クリックして拡大したくなるような演出（任意） */
-.figure img:hover {
+/* .figure img:hover {
     transform: scale(1.02);
-}
+} */
 
 /* 画像の下に表示する説明文（キャプション） */
 .figcaption {
@@ -129,4 +130,53 @@ h2 {
 .img-diagram {
     background-color: white;
     padding: 10px;
+}
+
+/* --- コラム欄用のカスタマイズ --- */
+
+/* --- コラム（小話）用のスタイル --- */
+.column-box {
+    margin: 40px 0;
+    padding: 20px 25px;
+    background-color: #fdfdfd; /* わずかに明るい背景 */
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    position: relative;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+}
+
+/* 左上に「Column」というラベルを付ける */
+.column-box::before {
+    content: "💡 コラム / 小話";
+    position: absolute;
+    top: -15px;
+    left: 20px;
+    background: var(--accent-color);
+    color: white;
+    padding: 2px 15px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+}
+
+.column-title {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--primary-color);
+    border-bottom: 1px dashed var(--accent-color);
+    padding-bottom: 5px;
+}
+
+.column-content {
+    font-size: 0.95rem;
+    color: #555;
+}
+
+/* コラム内の強調用テキスト */
+.column-content em {
+    font-style: normal;
+    background: linear-gradient(transparent 70%, #ffeb3b 70%); /* 黄色のマーカー風 */
+    font-weight: bold;
 }
