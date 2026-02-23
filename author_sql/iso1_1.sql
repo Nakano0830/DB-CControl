@@ -1,0 +1,2 @@
+-- 現在適用されているトランザクション分離レベルを表示します
+SHOW transaction_isolation;

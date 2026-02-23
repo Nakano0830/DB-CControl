@@ -532,22 +532,400 @@ WHERE
             </div>
             <p>　新しく変更した2BのSQL文では、version=2を指定して更新を試みるようになっています。これにより、ターミナルBはターミナルAによって更新されたデータを正しく検出し、更新が成功します。反対に2Aを実行した場合には、一度目に実行したときにversion=2に変更したことで、version=1を指定したままの元のトランザクションをもう一度実行しても更新されません。</p>
             <p>　このような仕組みを「楽観的ロック」と呼びます。今回は手動で更新しましたが、実際のアプリーケーションでは、今回のような競合が起きた場合には、エラーを発生させ、ユーザーに自動か手動での再試行を促す処理が行われます。これにより、データの一貫性を保つことができます。</p>
+            <p>　次に「悲観的ロック」を確認してみましょう。悲観的ロックはデータの同時更新は頻繫に発生するという悲観的な考えに基づいてアプローチをする手法でしたね。それでは確認してみましょう。まずは npm run sql author_sql/pessimistic1_1.sql を実行してください。そして前回の「楽観的ロック」で減少した分が戻っていることを確認してください。それから次のコマンドを同じタイミングでそれぞれのターミナルで実行してみましょう。</p>
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>-- AがColaの在庫を20減らす
+npm run sql author_sql/pessimistic1_2A.sql</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>-- BがColaの在庫を40減らす
+npm run sql author_sql/pessimistic1_2B.sql</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　実行してみると少し待った後に、2Aを実行したほうでは、「UPDATE 1」と「COMMIT」が表示され、2Bを実行したほうでは、「UPDATE 1」が表示され、今回は両方とも更新が成功します。
+                これは、悲観的ロックによって、2Bのトランザクションが2Aのトランザクションが完了するまで待機したためです。これにより、データの一貫性を保つことができます。
+                実際に、先ほどのコマンドで実行したSQL文を確認してみましょう。</p>
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>BEGIN;
 
+-- 1. 排他ロック（FOR UPDATE）を獲得
+SELECT
+    name,
+    qty
+FROM
+    stocks
+WHERE
+    name = 'Cola'
+FOR UPDATE;
 
+-- 2. ここで意図的に10秒間、処理を一時停止（ロックを保持し続ける）
+SELECT
+    PG_SLEEP(10);
 
+-- 3. 10秒後に在庫を280に更新してコミット
+UPDATE stocks
+SET
+    qty = 280
+WHERE
+    name = 'Cola';
 
+COMMIT;</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>-- Terminal Aがロックを手放す（10秒経過してCOMMITされる）まで、この処理は待機させられます
+UPDATE stocks
+SET
+    qty = 260
+WHERE
+    name = 'Cola';</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　上記のSQL文では、ターミナルAで、SELECT ... FOR UPDATEを使用して、Colaのレコードに対して排他ロックを獲得しています。これにより、ターミナルBはターミナルAがロックを手放すまで待機することになります。
+                ターミナルAはロックの解除待ちを発生させるためにPG_SLEEP(10)で10秒間処理を一時停止し、その後に在庫を20減少させ更新してコミットします。一方、ターミナルBはターミナルAがロックを手放すまで待機し、その後に在庫を40減少させ更新します。
+                しかし、今回実行して npm run sql author_sql/pessimistic1_3.sql を実行して値がどうなったかを確認してみると260になっており、ターミナルAの更新が無視されています。これではロストアップデートが発生してしまっているので、このコードを改善する
+                必要があります。今回の場合はその改善を行うことで、このSQL文の「悲観的ロック」を正しく実装できます。それは演習問題を解いて確認しておきましょう。</p>
+            <div class="quiz-card">
+                <p><strong>演習問題</strong></p>
+                <p><strong>問1:</strong> 今回の「楽観的ロック」の例では versionカラムを用いましたが他にもどのようなカラムを用いることができますか？</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans4-1')">答えを表示</button>
+                <p id="ans4-1" class="answer">更新日時</p>
+                <p><strong>問2:</strong> 今回の実験で使用した「pessimistic1_2B.sql」をターミナルAでの実行がコミットされた後の値で値を更新するためにはどのように変更すればいいでしょうか?</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans4-2')">答えを表示</button>
+                <p id="ans4-2" class="answer">CControl2_1.sql<br>
+                    SET qty = qty - 40 に変更することで、ターミナルAがコミット後にqtyの値を正しく更新できるようになります。</p>
+            </div>
 
+            <p>　さて次は「悲観的ロック」の大きな問題である「デッドロック」についてを確認してみましょう。復習しておくと、デッドロックは複数のトランザクションが互いに相手のロックの解除待ちの状態に陥ることで、どちらの処理も続けられない状態になり、システムのパフォーマンスが低下するという問題でしたね。
+                それでは確認してみましょう。まずは npm run sql author_sql/deadlock1_1.sql をどちらかのターミナルで実行して値を初期化しておいてください。そして次のコマンドを同じタイミングでそれぞれのターミナルで実行してみましょう。</p>
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>-- AがColaの在庫とWaterの在庫を20減らす
+npm run sql author_sql/deadlock1_2A.sql</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>-- BがColaの在庫とWaterの在庫を40減らす
+npm run sql author_sql/deadlock1_2B.sql</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　実行できましたか?今回はかなり大きな変化が生じたと思います。次の図のようなエラーが表示されたのではないでしょうか?図13を確認してみてください。</p>
+            <div class="figure">
+            <img src="images/deadlock1.png" alt="デッドロックの実験図解" class="img-diagram">
+            <p class="figcaption">図13：デッドロックのターミナル出力</p>
+            </div>
+            <p>　そう，これがデッドロックです。実際に、先ほど実行したSQLの中身を確認してみましょう。</p>
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>BEGIN;
 
+-- 1. まず「コーラ」のロックを獲得
+SELECT
+    name
+FROM
+    stocks
+WHERE
+    name = 'Cola'
+FOR UPDATE;
 
+-- 2. 業者Bが「水」をロックする時間を稼ぐために3秒待機
+SELECT
+    PG_SLEEP(3);
+
+-- 3. 次に「水」のロックを獲得しようとする
+-- （しかし業者Bが持っているためブロックされる）
+SELECT
+    name
+FROM
+    stocks
+WHERE
+    name = 'Water'
+FOR UPDATE;
+
+-- ※ 実際にはここでデッドロックが検知され、
+-- トランザクションが強制終了(ROLLBACK)されます
+UPDATE stocks
+SET
+    qty = qty - 20
+WHERE
+    name = 'Cola';
+
+UPDATE stocks
+SET
+    qty = qty - 20
+WHERE
+    name = 'Water';
+
+COMMIT;</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>BEGIN;
+
+-- 1. まず「水」のロックを獲得
+SELECT
+    name
+FROM
+    stocks
+WHERE
+    name = 'Water'
+FOR UPDATE;
+
+-- 2. 業者Aが「コーラ」をロックする時間を稼ぐために3秒待機
+SELECT
+    PG_SLEEP(3);
+
+-- 3. 次に「コーラ」のロックを獲得しようとする
+-- （しかし業者Aが持っているためブロックされる）
+SELECT
+    name
+FROM
+    stocks
+WHERE
+    name = 'Cola'
+FOR UPDATE;
+
+-- ※ どちらかが犠牲になり、こちらは成功するか、
+-- あるいはエラーで終了します
+UPDATE stocks
+SET
+    qty = qty - 40
+WHERE
+    name = 'Cola';
+
+UPDATE stocks
+SET
+    qty = qty - 40
+WHERE
+    name = 'Water';
+
+COMMIT;</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　上記のSQL文では、ターミナルAが「コーラ」のロックを獲得し、ターミナルBが「水」のロックを獲得しています。その後、ターミナルAは「水」のロックを獲得しようとし、ターミナルBは「コーラ」のロックを獲得しようとしますが、お互いに相手のロックの解除待ちの状態に陥るため、デッドロックが発生します。
+                そのため今回図13のようなエラーが表示されたのです。デッドロックが発生すると、データベースシステムは自動的にどちらかのトランザクションを犠牲にしてエラーを返すことで、デッドロック状態から脱出します。これにより、システム全体のパフォーマンス低下を防ぐことができます。
+                どちらかのトランザクションが適用されたかどうかは npm run sql author_sql/deadlock1_3.sql で確認できます。私の環境では、 ターミナルAの実行が適応され、ColaとWaterの在庫がそれぞれ20減らされています。そのため、デッドロックのエラーが表示されていたのはそれぞれを40減少させる
+                ターミナルBの方でした。</p>
+            <p>　今回は実験だったので、ターミナルBが最終的に結果に反映されていなくとも問題ありませんが、現実のデータベースでは、そのようなことがあってはいけません。デッドロックを避けるためには、トランザクションの実行順序を工夫したり、ロックの取得順序を統一したりすることが重要です。
+                一つの例として、すべてのトランザクションが同じ順序でロックを取得するように設計することが挙げられます。例えば、すべてのトランザクションが「コーラ」のロックを先に取得し、その後に「水」のロックを取得するようにすれば、デッドロックの発生を防ぐことができます。
+                実際に書き換えながら実行してみましょう。何処を書き換える必要があるかわからない場合には、 deadlock2_XX.sql を確認してみてください。書き換えた後に、もう一度同じコマンドをそれぞれのターミナルで実行してみてください。今度はデッドロックが発生せず、両方のトランザクションが正常に完了するはずです。
+                しかし、このような工夫をしても、複雑なシステムではデッドロックが完全に防げるわけではありません。したがって、データベースシステムはデッドロックを検出し、自動的に対処する機能を備えています。アプリケーション側でも、デッドロックが発生した場合のエラーハンドリングを適切に行うことが重要です。
+            </p>
+            <div class="quiz-card">
+                <p><strong>演習問題</strong></p>
+                <p><strong>問1:</strong> 今回の「deadlock1_2B.sql」を修正することで、デッドロックが発生した後にもう一度処理を実行することで、2Bの更新が切り捨てられないように変更することができます。DO や EXCEPTION，PERFORMを活用して実装してみてください。
+                    条件としてはリトライの最大回数は3 例外処理中に1秒待機させる　あまりここまでで触れていないものを使用しているため、分からない場合は、答えを確認して実際に動かすことで、このような方法でも解決が可能だということを確かめてみてください。</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans5')">答えを表示</button>
+                <p id="ans5" class="answer">CCotrol3_1.sql</p>
+            </div>
+            
+            <p>　そして、ここからはトランザクションの「隔離レベル」についてを実験していきます。まずは復習しておくと、トランザクションの「隔離レベル」は、トランザクション同士が互いに影響を与えることを制限する仕組みです。これにより、データの一貫性を保ちながら、複数のトランザクションを同時に実行できるようになります。前に載せた表をもう一度確認しておきましょう。</p>
+            <div class="figure">
+            <img src="images/Isoletion_level.png" alt="トランザクションの隔離レベルの表" class="img-diagram">
+            <p class="figcaption">図14：トランザクションの隔離レベルの表(復習)</p>
+            </div>
+
+            <p>　先ずは、デフォルトの隔離レベルを確認してみましょう。デフォルトの隔離レベルは「Read Committed」です。 npm run sql author_sql/iso1_1.sql を実行することで確認できます。このレベルでは、他のトランザクションがコミットしたデータを読み込むことができます。しかし、同じトランザクション内で複数回同じデータを読み込んでも、その時点でのデータが異なる可能性があります。
+                実際に確認してみましょう。それぞれのターミナルで以下のコマンドを実行してみてください。
+            </p>
+
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>-- AがColaの在庫を読み取る
+npm run sql author_sql/iso2_2A.sql</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>-- BがColaの在庫を50増加させる
+npm run sql author_sql/iso2_2B.sql</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　上記のコマンドを実行すると、ターミナルAでは「Stock」が300と表示されますが、ターミナルBで在庫を50増加させた後に、もう一度ターミナルAで在庫を読み取ると、「Stock」が350と表示されます。これは、デフォルトの隔離レベルである「Read Committed」では、他のトランザクションがコミットしたデータを読み込むことができるためです。
+                先ほどのコマンドで実行したSQL文を確認してみましょう。</p>
+
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>BEGIN
+SET
+      step       | qty
+-----------------+-----
+ 1回目の読み取り | 300
+(1 行)
+
+ pg_sleep
+----------
+
+(1 行)
+
+      step       | qty
+-----------------+-----
+ 2回目の読み取り | 350
+(1 行)
+
+COMMIT
+                </code></pre>
+            </div>
+
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>BEGIN;
+
+-- 明示的に Read Committed を設定
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+-- 1回目の読み取り（画面に結果が表示されます）
+SELECT
+    '1回目の読み取り' AS step,
+    qty
+FROM
+    stocks
+WHERE
+    name = 'Cola';
+
+-- Terminal Bが更新する時間を稼ぐため、
+-- 5秒間待機します
+SELECT
+    PG_SLEEP(5);
+
+-- 2回目の読み取り（待機中にBが更新した
+-- 場合、ここでの結果が変わってしまいます）
+SELECT
+    '2回目の読み取り' AS step,
+    qty
+FROM
+    stocks
+WHERE
+    name = 'Cola';
+
+COMMIT;</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>-- Aが5秒待っている間に素早く実行して、
+--値を書き換えます
+UPDATE stocks
+SET
+    qty = qty + 50
+WHERE
+    name = 'Cola';</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　上記のSQL文では、ターミナルAで明示的に隔離レベルを「Read Committed」に設定しています。これにより、ターミナルAは他のトランザクションがコミットしたデータを読み込むことができます。
+                ターミナルAは最初の読み取りで在庫数を300と表示し、その後5秒間待機します。その間にターミナルBが在庫数を50増加させる更新を行います。ターミナルAが2回目の読み取りを行うと、在庫数が350と表示されます。これは、ターミナルBの更新がコミットされたため、ターミナルAが最新のデータを読み込んだことを示しています。
+            </p>
+            <p>　次に、隔離レベルを「Repeatable Read」に設定してみましょう。これにより、同じトランザクション内で複数回同じデータを読み込んでも、その時点でのデータが異なることはなくなります。npm run sql author_sql/iso3_1.sql　を実行してから、それぞれのターミナルで以下のコマンドを実行してみてください。</p>
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>-- AがColaの在庫を読み取る (Repeatable Read)
+npm run sql author_sql/iso3_2A.sql</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>-- BがColaの在庫を50増加させる
+npm run sql author_sql/iso3_2B.sql</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　上記のコマンドを実行すると、ターミナルAでは「Stock」が300と表示されますが、ターミナルBで在庫を50増加させた後に、もう一度ターミナルAで在庫を読み取ると、「Stock」が300のまま変わらないことが確認できます。これは、隔離レベルが「Repeatable Read」に設定されているため、ターミナルAが最初に読み取ったデータがそのトランザクション内で一貫していることを示しています。
+                先ほどのコマンドで実行したSQL文を確認してみましょう。</p>
+            <div class="code-block">
+                <div class="code-header">TerminalA</div>
+                <pre><code>BEGIN;
+-- 分離レベルを Repeatable Read に引き上げる
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+
+-- 1回目の読み取り
+SELECT '1回目の読み取り' AS step, qty FROM stocks WHERE name = 'Cola';
+
+-- Terminal Bが更新する時間を稼ぐため、5秒間待機します
+SELECT pg_sleep(5);
+
+-- 2回目の読み取り（Bが書き換えたとしても、1回目と同じ値が返ってきます！）
+SELECT '2回目の読み取り' AS step, qty FROM stocks WHERE name = 'Cola';
+
+COMMIT;</code></pre>
+            </div>
+            <p>　上記のSQL文では、ターミナルAで明示的に隔離レベルを「Repeatable Read」に設定しています。これにより、ターミナルAは最初に読み取ったデータをトランザクション終了まで一貫して保持します。ターミナルBが更新したとしても、ターミナルAの2回目の読み取りでは最初に読み取った値（300）が返されます。
+                このように、隔離レベルを設定することで、ロックとはまた別の形でデータの一貫性を保つことができます。</p>
+            <p>　今回は「Read Committed」、「Repeatable Read」の2つの隔離レベルについて確認しました。それぞれの隔離レベルには、データの一貫性を保つための異なる利点があります。データベースの設計や運用において、適切な隔離レベルを選択することは、アプリケーションの信頼性を高める上で非常に重要です。
+                残る2つの隔離レベルも SET TRANSACTION ISOLATION LEVEL で設定することができますので、興味がある方はぜひ試してみてください。ただし、「Read Uncommitted」は、Read committedと同じ仕様になってしまうのでそこだけは注意してください。
+            </p>
+
+            <div class="quiz-card">
+                <p><strong>演習問題</strong></p>
+                <p><strong>問1:</strong> あなたはECサイトの管理者です。現在の分離レベルは <code>READ COMMITTED</code> です。<br>
+                    「現在の全商品の在庫数」を計算する重い集計SQL（<code>SELECT SUM(qty)...</code>）を実行しました。処理に10秒かかっている間に、別のスタッフが新商品の在庫データ（qty: 50）を <code>INSERT</code> して <code>COMMIT</code> しました。<br>
+                    集計SQLが完了したとき、その結果に新商品の「50」は含まれているでしょうか？</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans6-1')">答えを表示</button>
+                <p id="ans6-1" class="answer">含まれてしまう（ファントムリード現象）<br>
+                READ COMMITTEDは常に「その瞬間にコミットされている最新データ」を読みに行きます。そのため、集計の途中で追加されたデータも計算に巻き込まれてしまい、結果が実行のタイミングによってブレてしまいます。正確なレポートを出したい場合は、分離レベルを上げる必要があります。</p>
+                <p><strong>問2:</strong> 以下の2つのシステムを開発する場合、それぞれどの分離レベル（またはロック手法）を選ぶのが適切でしょうか？</p>
+                    <ol>
+                        <li><strong>温度監視システム：</strong> 1万台のセンサーから毎秒データが送られてくる。たまにデータが欠損しても、最新の温度が分かれば良い。</li>
+                        <li><strong>スマート金庫の開錠管理：</strong> スマホアプリから「開錠」命令を送る。絶対に2人同時に開錠処理が走って誤作動してはならない。</li>
+                    </ol>
+                <button class="ans-btn" onclick="toggleAnswer('ans6-2')">答えを表示</button>
+                <p id="ans6-2" class="answer"><strong>1. 温度監視システム：</strong> <code>READ COMMITTED</code>（または楽観的ロック）<br>
+                            圧倒的な処理スピード（可用性）が求められます。厳格なロックや分離レベルを設定すると、順番待ちでシステムがパンクするため、デフォルトのままで高速にさばくのが正解です。<br>
+                            <strong>2. スマート金庫の開錠管理：</strong> <code>SERIALIZABLE</code>（または悲観的ロック）<br>
+                            スピードよりも「データの完全な整合性」が最優先です。わずかなタイミングのズレによる不正操作を防ぐため、最も厳しい制御が必要です。
+                </p>
+                <p><strong>問3:</strong> <p>　あなたはIoTスマートホームの「電力制御システム」を開発している。ルールは一つ、<strong>「家全体の合計消費電力が1000Wを超えてはならない（ブレーカーが落ちるため）」</strong>です。</p>
+                    <p>　現在、あなたが開発したシステムを搭載すると仮定したエアコンが400W、ヒーターが400W（合計800W）消費しているとします。ここで、住人2人が同時にスマホアプリから「自分の部屋の機器を+200W強くする」ボタンを押しました。</p>
+                    <p>　この時にブレーカー降下を防ぐSQLをSERIALIZABLEを用いて実装してください。author_sql内のCControl4フォルダ内の.sqlファイルを参考に作成してください。</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans6-3')">答えを表示</button>
+                <p id="ans6-3" class="answer">CControl4_answerディレクトリ参照</p>
+            </div>
+
+            <p>　分離レベルの設定は、データベースの同時実行制御において非常に重要です。適切な分離レベルを選択することで、データの一貫性を保ちながら、システムのパフォーマンスを最適化することができます。.sql文においての分離レベルの設定方法を理解することは、データベース設計や運用において非常に重要です。
+                <span class="accent">SET TRANSACTION ISOLATION LEVEL</span>は、今後も活用する機会が多いので、ぜひ覚えておいてください。
+            </p>
         </section>
 
         <section id="quiz">
-            <h2>4. 理解度チェック</h2>
-            <div class="quiz-card">
-                <p><strong>問1:</strong> Repeatable Read隔離レベルで、他のトランザクションが更新したデータを読み込もうとするとどうなるか？</p>
-                <button class="ans-btn" onclick="toggleAnswer('ans1')">答えを表示</button>
-                <p id="ans1" class="answer">PostgreSQLでは、読み取り時点のスナップショットを維持するため、他のコミット済みデータは見えません。</p>
-            </div>
+            <h2>4. 最後に</h2>
+            <p>　今回はデータベースの同時実行制御についてを先ずは基本的な知識を確認した後に、実際にSQLを実行しながら、ロックや分離レベルの仕組みを体験してみました。今回の内容は、データベースの運用やアプリケーションの設計において非常に重要な知識です。特に、複数のユーザーが同時にデータを操作するようなシステムでは、同時実行制御の理解が不可欠です。
+                今回の内容を理解することで、データベースのパフォーマンスを最適化し、データの一貫性を保つための適切な戦略を立てることができるようになります。ぜひ、今回学んだことを活用して、より良いデータベースシステムを構築してください。
+            </p>
+
+            <p>作業時間:10時間程度</p>
         </section>
     </main>
 
