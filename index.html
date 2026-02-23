@@ -283,10 +283,14 @@ docker image pull dbgate/dbgate:6.6.3</code></pre>
                 <div class="code-header">Terminal</div>
                 <pre><code>git clone https://github.com/Nakano0830/DB-CControl.git</code></pre>
             </div>
-            <p>　クローンしてきたフォルダーをVSCodeなどで開き.envファイルの.dummy拡張子を外すか、新しく.envファイルを作成してください。その.envファイルには環境変数として以下を書きます。</p>
+            <p>　クローンしてきたフォルダーをVSCodeなどで開き.envファイルの.dummy拡張子を外すか、新しく.envファイルを作成してください。その.envファイルには環境変数として以下を書きます。また、以下のコマンドを実行し依存関係をダウンロードしてください。再利用させていただいている部分が多いため、余分にインストールしているものもありますが、気にしすぎないでいただけるとありがたいです。</p>
             <div class="code-block">
                 <div class="code-header">.env</div>
                 <pre><code>DATABASE_URL="postgresql://student:secret123@localhost:5432/playground?schema=public"</code></pre>
+            </div>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>npm i</code></pre>
             </div>
             <p>　本来であれば、コンテナを個人で作成する必要がありますが、今回はクローンしてきたフォルダーに用意しているコンテナを使用して実験を行うことにします。以下のコマンドを実行して、コンテナを起動してください。</p>
             <div class="code-block">
@@ -309,7 +313,42 @@ docker image pull dbgate/dbgate:6.6.3</code></pre>
         <section id="experiment">
             <h2>3. 実験</h2>
             <p>　まずは、用意した環境でsqlを実行していけるかを確かめましょう。sqlフォルダの中に.sqlファイルを作成し以下のsqlを記述してください。</p>
-            <p>2つのターミナルを左右に並べて、以下の順番でSQLを実行してください。</p>
+            <div class="code-block">
+                <div class="code-header">insert_stocks.sql</div>
+                <pre><code>-- 既に同名のテーブルがあれば削除する
+DROP TABLE IF EXISTS stocks;
+
+-- 在庫情報を保持するテーブルを作成する
+CREATE TABLE stocks (id INT PRIMARY KEY, name TEXT NOT NULL, qty INT, last_updated TIMESTAMP NOT NULL);
+
+-- テーブルにレコード（ユーザ情報）を挿入する
+INSERT INTO
+  stocks (id, name, qty, last_updated)
+VALUES
+  (1, 'Cola', 300, '2026-02-14 15:30'),
+  (2, 'Fanta', 200, '2026-02-14 15:00'),
+  (3, 'Water', 400, '2026-02-14 15:50');
+
+-- すべてのレコードを抽出する
+SELECT * FROM stocks;</code></pre>
+            </div>
+            <p>　上記のSQLファイルを実行してください。実行結果として、3つのレコードが表示されれば成功です。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>npm run sql sql/insert_stocks.sql</code></pre>
+            </div>
+            <p>　また、次のリンクからデータベースにstocksテーブルが作成されたことを確認してください。<br>
+                <a href="http://localhost:8080">データベースを確認</a></p>
+            <div class="figure">
+            <img src="images/DBgate.png" alt="DBgateでデータベースを確認する図解" class="img-diagram">
+            <p class="figcaption">図9：DBgateでデータベースを確認</p>
+            </div>
+            <p>　次からは、実際に確かめてみましょう。まずはVScode上でターミナル2つを表示します。以下の図のように並べてください。</p>
+            <div class="figure">
+            <img src="images/terminal_sep.png" alt="VSCodeでターミナルを並べる図解" class="img-diagram">
+            <p class="figcaption">図10：VSCodeでターミナルを並べる図解</p>
+            </div>
+            <p>並べたターミナル上で、以下の順番でコマンドを実行してください。</p>
             
             <div class="lab-grid">
                 <div class="terminal-box">
@@ -317,7 +356,7 @@ docker image pull dbgate/dbgate:6.6.3</code></pre>
                     <div class="code-block">
                         <pre><code>BEGIN;
 -- 現在の値を読み込む
-SELECT status_value FROM devices WHERE id = 1;</code></pre>
+npm run sql author_sql/lost_update1.sql</code></pre>
                     </div>
                 </div>
                 <div class="terminal-box">
@@ -325,11 +364,115 @@ SELECT status_value FROM devices WHERE id = 1;</code></pre>
                     <div class="code-block">
                         <pre><code>BEGIN;
 -- Aが読んだ直後にBも読み込む
-SELECT status_value FROM devices WHERE id = 1;</code></pre>
+npm run sql author_sql/lost_update1.sql</code></pre>
                     </div>
                 </div>
             </div>
-            
+
+            <p>　上記のコマンドを実行すると、それぞれのターミナルで以下の図のような値が表示されます。この結果から、同じデータを2つのトランザクションが同時に読み取っていることが確認できます。</p>
+            <div class="figure">
+            <img src="images/lost_update1.png" alt="ロストアップデートの実験図解1" class="img-diagram">
+            <p class="figcaption">図11：ロストアップデートの実験図解1</p>
+            </div>
+            <p>　今回実行したlost_update1.sqlは中身を確認してみると以下のようになっています。</p>
+
+            <div class="code-block">
+                <div class="code-header">lost_update1.sql</div>
+                <pre><code>BEGIN TRANSACTION;   -- トランザクションの開始
+
+SELECT
+    name,
+    qty AS "Stock"
+FROM
+    stocks
+WHERE
+    name IN ('Cola');
+</code></pre>
+            </div>
+            <p>　<span class="accent">BEGIN TRANSACTION</span>は、トランザクションを開始するコマンドです。このコマンド以降の操作は、他のトランザクションから見えなくなります。この状態でSELECT文を実行すると、トランザクションの開始時点でのデータが表示されます。</p>
+
+            <p>　次に、それぞれのターミナルで、以下のコマンドを実行してください。</p>
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>-- AがColaの在庫を20減らす
+npm run sql author_sql/lost_update1_2A.sql</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>-- BがColaの在庫を40減らす
+npm run sql author_sql/lost_update1_2B.sql</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　上記のコマンドを実行実行後、それぞれのターミナルで「UPDATE 1」が表示されれば成功です。このときAとBではそれぞれの以下のようなSQLが実行されています。</p>
+                        <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>UPDATE stocks
+SET
+    qty = 280
+WHERE
+    name IN ('Cola')</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>UPDATE stocks
+SET
+    qty = 260
+WHERE
+    name IN ('Cola')</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　ターミナルAでは、Colaの在庫を20減らすSQLが実行され、qtyが280に更新されます。一方、ターミナルBでは、Colaの在庫を40減らすSQLが実行されています。このままの状態ではトランザクションがCOMMITされていないので、COMMITしてみましょう。次のコマンドをそれぞれのターミナルで実行してみてください。</p>
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>npm run sql author_sql/lost_update1_3.sql</code></pre> 
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>npm run sql author_sql/lost_update1_3.sql</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　上記のコマンドを実行すると、それぞれのターミナルで「COMMIT」が表示されます。これにより、トランザクションが正常に終了し、データベースに変更が反映されます。それではどのようにCOMMITされたのかを確認してみましょう。
+                以下のコマンドをそれぞれのターミナルで実行してください。実行してみるとそれぞれのターミナルで図12のような結果が表示されるはずです。AもBも在庫数が260になっていることが確認できます。これが「ロストアップデート」または「更新消失」と呼ばれる現象です。
+            </p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>npm run sql author_sql/lost_update1_4.sql</code></pre>
+            </div>
+            <div class="figure">
+            <img src="images/lost_update2.png" alt="ロストアップデートの実験図解2" class="img-diagram">
+            <p class="figcaption">図12：ロストアップデートの実験図解2</p>
+            </div>
+            <p>　今回の実験では、片方のトランザクションがコミットされる前に、別のトランザクションが同じデータを更新したために、更新したデータが失われてしまいました。こうした現象を防ぐために先ほど紹介したロックを取得したり、隔離レベルについての確認を次からは行っていきます。</p>
+
+            <div class="quiz-card">
+                <p><strong>演習問題</strong></p>
+                <p><strong>問1:</strong>SQL文でBEGIN TRANSACTIONを実行する際に最終的にそのトランザクションを確定するためにどのようなSQL文を実行する必要がありますか？</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans3-1')">答えを表示</button>
+                <p id="ans3-1" class="answer">COMMIT</p>
+                <p><strong>問2:</strong> 今回の実験で使用した「lost_update1_2A.sql」と「lost_update1_2B.sql」は、それぞれSET文を変更することで値を正しく更新することがひとまず可能になります。どのように変更すればいいでしょうか</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans3-2')">答えを表示</button>
+                <p id="ans3-2" class="answer">author_sql/drill 内に解答は載っているでそれを確認してください。 CControl1_1A.sqlとCControl1_1B.sql<br>
+                    SET qty = qty - 20 と SET qty = qty - 40 に変更することで、変更する際にqtyの値を正しく更新できるようになります。</p>
+            </div>
+
+
+
+
         </section>
 
         <section id="quiz">
