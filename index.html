@@ -469,6 +469,72 @@ WHERE
                 <p id="ans3-2" class="answer">author_sql/drill 内に解答は載っているでそれを確認してください。 CControl1_1A.sqlとCControl1_1B.sql<br>
                     SET qty = qty - 20 と SET qty = qty - 40 に変更することで、変更する際にqtyの値を正しく更新できるようになります。</p>
             </div>
+            <p>　まずは「楽観的ロック」を確認しましょう。まずはnpm run sql author_sql/optimitic1_1.sql をそれぞれのターミナルで実行してください。そしてターミナルの表示にversionカラムが追加されていることを確認してください。その後にそれぞれのターミナルで以下のコマンドを実行してください。</p>
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>-- AがColaの在庫を20減らす
+npm run sql author_sql/optimistic1_2A.sql</code></pre>
+                    </div>
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>-- BがColaの在庫を40減らす
+npm run sql author_sql/optimistic1_2B.sql</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　上記のコマンドを実行した後に、ターミナルAでは「UPDATE 1」が表示され、ターミナルBでは「UPDATE 0」が表示されます。これは、ターミナルBで更新しようとしたデータが、ターミナルAで更新されたデータと競合したため、更新が失敗したことを示しています。このように、楽観的ロックは、データの競合を検出し、更新を防ぐ仕組みです。レコードがどうなったかを確認する際にはoptimistic1_3.sqlを実行してください。実際に、先ほどのコマンドで実行したSQL文を確認してみましょう。</p>
+            <div class="lab-grid">
+                <div class="terminal-box">
+                    <h3>Terminal A (TX 1)</h3>
+                    <div class="code-block">
+                        <pre><code>-- version=1であることを条件に更新し、versionを2にインクリメントする
+UPDATE stocks
+SET
+    qty = 280,
+    version = version + 1
+WHERE
+    name = 'Cola' AND
+    version = 1;</code></pre>
+                    </div>
+
+                </div>
+                <div class="terminal-box">
+                    <h3>Terminal B (TX 2)</h3>
+                    <div class="code-block">
+                        <pre><code>-- Terminal Bも初期状態のversion=1を指定して更新を試みる
+-- しかし、既にAによってversionが2になっているため、該当行なし(0 rows updated)となる
+UPDATE stocks
+SET
+    qty = 260,
+    version = version + 1
+WHERE
+    name = 'Cola' AND
+    version = 1;</code></pre>
+                    </div>
+                </div>
+            </div>
+            <p>　上記のSQL文では、更新する際にversionカラムの値を条件にして更新を行っています。ターミナルAでは、versionが1であることを条件に更新を行い、更新が成功した場合にはversionを2にインクリメントしています。一方、ターミナルBも初期状態のversion=1を指定して更新を試みていますが、既にターミナルAによってversionが2になっているため、該当行なし(0 rows updated)となります。これにより、ターミナルBの更新は失敗し、ロストアップデートが防止されます。新しく以下のようにSQLの変更を行ってから
+                もう一度 npm run sql author_sql/optimistic1_2A.sql と npm run sql author_sql/optimistic1_2B.sql をそれぞれのターミナルで実行してみてください。今度は2Bを実行した方のみが「UPDATE 1」が表示されるはずです。</p>
+            <div class="code-block">
+                <div class="code-header">optimistic1_2B.sql</div>
+                <pre><code>-- Terminal Bはversion=2を指定して更新を試みる
+UPDATE stocks
+SET
+    qty = qty - 40,
+    version = version + 1
+WHERE
+    name = 'Cola' AND
+    version = 2;</code></pre>
+            </div>
+            <p>　新しく変更した2BのSQL文では、version=2を指定して更新を試みるようになっています。これにより、ターミナルBはターミナルAによって更新されたデータを正しく検出し、更新が成功します。反対に2Aを実行した場合には、一度目に実行したときにversion=2に変更したことで、version=1を指定したままの元のトランザクションをもう一度実行しても更新されません。</p>
+            <p>　このような仕組みを「楽観的ロック」と呼びます。今回は手動で更新しましたが、実際のアプリーケーションでは、今回のような競合が起きた場合には、エラーを発生させ、ユーザーに自動か手動での再試行を促す処理が行われます。これにより、データの一貫性を保つことができます。</p>
+
+
+
 
 
 
