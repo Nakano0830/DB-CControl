@@ -261,10 +261,54 @@ docker image pull dbgate/dbgate:6.6.3</code></pre>
                 <div class="code-header">Terminal</div>
                 <pre><code>docker images</code></pre>
             </div>
+
+            <p>　さて次から実際に実験を行うコンテナを作成しましょう。まずは試しに「ccontrol」という名前でコンテナを作成します。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>docker container create --name ccontrol -e POSTGRES_USER=student -e POSTGRES_PASSWORD=secret123 -e POSTGRES_DB=playground postgres:17.6</code></pre>
+            </div>
+            <p>　上記のコマンドを実行後にDocker Desktopのコンテナ一覧に"ccontrol"が表示されていれば、コンテナの作成は完了です。試しで作成したものなので、以下のコマンドでコンテナを削除してください。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>docker container rm ccontrol</code></pre>
+            </div>
+            <p>　その後に以下のコマンドを実行し、コンテナが削除されたことを確認してください。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>docker ps -a</code></pre>
+            </div>
+
+            <p>　ここから実験に使うコンテナを用意しますが、その前に必要なファイルなどを用意します。gitを用いてダウンロードするので、クローンを置くディレクトリからcmdを用いてコマンドプロンプトを起動し以下のコマンドを実行してください。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>git clone https://github.com/Nakano0830/DB-CControl.git</code></pre>
+            </div>
+            <p>　クローンしてきたフォルダーをVSCodeなどで開き.envファイルの.dummy拡張子を外すか、新しく.envファイルを作成してください。その.envファイルには環境変数として以下を書きます。</p>
+            <div class="code-block">
+                <div class="code-header">.env</div>
+                <pre><code>DATABASE_URL="postgresql://student:secret123@localhost:5432/playground?schema=public"</code></pre>
+            </div>
+            <p>　本来であれば、コンテナを個人で作成する必要がありますが、今回はクローンしてきたフォルダーに用意しているコンテナを使用して実験を行うことにします。以下のコマンドを実行して、コンテナを起動してください。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>docker compose -f docker/docker-compose.yaml -p ccontroldev up -d --wait</code></pre>
+            </div>
+            <p>　上記のコマンドを実行した後に、Docker Desktopのコンテナ一覧に"ccontroldev"が表示されていれば、コンテナの起動は完了です。以下のコマンドを実行することでも確認できます。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>docker ps</code></pre>
+            </div>
+            <p>　起動したコンテナを停止する際には、以下のコマンドを実行します。これらのコマンド起動と停止の操作は、Docker DesktopのUIからも可能です。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>docker compose -f docker/docker-compose.yaml -p ccontroldev down</code></pre>
+            </div>
+
         </section>
 
         <section id="experiment">
-            <h2>3. 実験：ロストアップデートを体験する</h2>
+            <h2>3. 実験</h2>
+            <p>　まずは、用意した環境でsqlを実行していけるかを確かめましょう。sqlフォルダの中に.sqlファイルを作成し以下のsqlを記述してください。</p>
             <p>2つのターミナルを左右に並べて、以下の順番でSQLを実行してください。</p>
             
             <div class="lab-grid">
