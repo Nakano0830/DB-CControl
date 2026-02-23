@@ -464,7 +464,7 @@ WHERE
                 <p><strong>問1:</strong>SQL文でBEGIN TRANSACTIONを実行する際に最終的にそのトランザクションを確定するためにどのようなSQL文を実行する必要がありますか？</p>
                 <button class="ans-btn" onclick="toggleAnswer('ans3-1')">答えを表示</button>
                 <p id="ans3-1" class="answer">COMMIT</p>
-                <p><strong>問2:</strong> 今回の実験で使用した「lost_update1_2A.sql」と「lost_update1_2B.sql」は、それぞれSET文を変更することで値を正しく更新することがひとまず可能になります。どのように変更すればいいでしょうか</p>
+                <p><strong>問2:</strong> 今回の実験で使用した「lost_update1_2A.sql」と「lost_update1_2B.sql」は、それぞれSET文を変更することで値を正しく更新することがひとまず可能になります。どのように変更すればいいでしょうか?新しく.sqlファイルを作成する際にはsqlフォルダを作成しその中にまとめていくようにしておいてください。</p>
                 <button class="ans-btn" onclick="toggleAnswer('ans3-2')">答えを表示</button>
                 <p id="ans3-2" class="answer">author_sql/drill 内に解答は載っているでそれを確認してください。 CControl1_1A.sqlとCControl1_1B.sql<br>
                     SET qty = qty - 20 と SET qty = qty - 40 に変更することで、変更する際にqtyの値を正しく更新できるようになります。</p>
