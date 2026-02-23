@@ -81,13 +81,6 @@
                 </div>
             </aside>
 
-            <span class="accent">「排他ロック」「共有ロック」</span>について復習します。</p>
-            
-            <div class="figure">
-            <img src="images/test.png" alt="隔離レベルの図解" class="img-diagram">
-            <p class="figcaption">図1：トランザクション隔離レベルによる不整合の許容範囲</p>
-            </div>
-
             <div class="quiz-card">
                 <p><strong>復習問題</strong></p>
                 <p><strong>問1:</strong> データベースにおいて、複数のトランザクションが同時に同じデータを更新した場合に発生する問題は？</p>
@@ -103,16 +96,170 @@
                 </ul>
                 <button class="ans-btn" onclick="toggleAnswer('ans2')">答えを表示</button>
                 <p id="ans2" class="answer">B:「一貫性(Consistency)」 ACID特性は基本情報技術者試験などでも出ることのあるものです。この機会に復習しておくと良いかもしれません。</p>
+
+                <p><strong>問3:</strong> 企業に勤めるAさんは現在設計しているデータベースシステムにおいてどちらのロック方式を採用すべきか検討しています。更新頻度が頻繫であり、参照する機器も多い場合どちらのロックを採用すべきか？</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans3')">答えを表示</button>
+                <p id="ans3" class="answer">悲観的ロック。更新頻度が高いため、楽観的ロックでは競合が発生しやすく、ロストアップデートのリスクが高くなります。</p>
+
+                <p><strong>問4:</strong> 現在運用しているデータベースにおいて以下のトランザクションが発生しました。この時トランザクションBに発生する問題は？(なおデータベースの更新に必要な時間は2分以上は必要になるものとする。)</p>
+                <ul>
+                    <li>データベース : ID:1 ,name: cola, count: 10, last_updated: 2024/01/01/15:00</li>
+                    <li>トランザクションA : 15:30:20にID:1のcountを10から9に更新</li>
+                    <li>トランザクションB : 15:30:25にID:1のcountを10から8に更新</li>
+                </ul>
+                <button class="ans-btn" onclick="toggleAnswer('ans4')">答えを表示</button>
+                <p id="ans4" class="answer">「ロストアップデート」または「更新消失」 更新日時が秒単位まで指定されていないため、トランザクションAの更新によってトランザクションBの更新が止められてしまう。</p>
             </div>
 
+            <p>　さて、ここからは<span class="accent">悲観的ロック</span>の具体的なロックの方法についてをITパスポート試験などでも出てくることのある
+                <span class="accent">「排他ロック」「共有ロック」</span>について説明します。</p>
+            <p>　排他ロック(または占有ロック)は、あるトランザクションAがデータを更新する際には、他の例えばトランザクションBはそのデータを読み取ることも更新処理を行うこともできません。先ほどの図.2で使用したシステムはこちらが該当します。
+                RDBMSにおいては<span class="accent">「SELECT ... FOR UPDATE」</span>という文で排他ロックを取得できます。</p>
+            <p>　共有ロックは、あるトランザクションAがデータを読み取る際には、他のトランザクションBがそのデータを読み取ることは可能ですが、更新処理を行うことはできません。トランザクションAも更新処理を行うことはできません。
+                RDBMSにおいては<span class="accent">「SELECT ... FOR SHARE」</span>という文で共有ロックを取得できます。
+            </p>
+
+            <div class="figure">
+            <img src="images/VenderM_db_3.png" alt="自販機在庫管理システムの排・共ロック図" class="img-diagram">
+            <p class="figcaption">図4：排他ロックと共有ロック図解</p>
+            </div>
+
+            <p>　このように、「排他ロック」と「共有ロック」を用いて、トランザクションの同時実行を制御し、データの一貫性を保つことができます。しかし、ロックを取得する際には、ロックの粒度やロックの保持期間によって、システム全体のパフォーマンスに影響を与える可能性があります。
+                特に顕著な例として、別々のトランザクションが互にロックを取得したデータに対してロックを取得しようとすることで、互いにロックの解放を待ち続ける状態である<span class="accent">「デッドロック」</span>が発生する可能性があります。デッドロックが発生すると、
+                システム全体のパフォーマンスが著しく低下するため、適切なロックの設計と管理が重要になります。
+            </p>
+
+            <div class="figure">
+            <img src="images/VenderM_db_4.png" alt="デッドロックの図解" class="img-diagram">
+            <p class="figcaption">図5：デッドロックの例</p>
+            </div>
+
+            <p>　上記の図の例では、トランザクションAがデータを更新する際に「Cola」レコードに排他ロック(A鍵)を取得し、もう一方のトランザクションBが「Water」レコードに排他ロック(B鍵)を取得した後に、互いにそのロックを取得されたレコードを参照しようとしたために、
+                ロックの解除待ちが発生している状態です。こういった場合には、DBMS側で待ちに対してタイムアウトを設定することなどで、デッドロックを回避します。 </p>
+            <p>　もし、そういった設定がされていなければDBMSの更新処理が完了せず、また別のトランザクションが「Cola」レコードや「Water」レコードに対してロックを取得しようとすると既にロックが取得されているためにロックを取得できず最初に発生したデッドロックが
+                他のトランザクションに対して影響を及ぼし、DBMS全体のパフォーマンスが著しく低下します。
+            </p>
+
+            <p>　先ほどまでは実際にどのようにして同時実行制御を「ロック」を用いて行うのかを説明しましたが、そのロックを取得するうえで、トランザクションに対してどれくらいのロックの取得を保証させるのかを決めるレベルが存在します。
+                それが<span class="accent">トランザクションの「隔離レベル」</span>です。
+            </p>
+            <p>　トランザクションの隔離レベルは具体的には4つのレベルが存在します。しかし、説明する前にトランザクションで起こり得る現象をいくつか復習しておきましょう。</p>
+            <p>　トランザクションで起こり得る現象には、以下のようなものがあります。</p>
+            <ul>
+                <li><strong>ダーティリード(Dirty Read)</strong> : トランザクションAが更新したデータを、トランザクションBがコミット前に読み取ることができる現象。もしトランザクションAがロールバックされた場合、トランザクションBは存在しないデータを読み取ってしまう。</li>
+                <li><strong>ノンリピータブルリード(Non-repeatable Read)</strong> : トランザクションAが同じデータを複数回読み取る際に、他のトランザクションBがそのデータを更新しているために、読み取るたびに異なる値が返される現象。</li>
+                <li><strong>ファントムリード(Phantom Read)</strong> : トランザクションAが特定の条件でデータを読み取る際に、他のトランザクションBが新しいデータを挿入することで、同じ条件で再度読み取ると異なる結果が返される現象。</li>
+                <li><strong>直列化異常</strong>トランザクションを直列実行した際と、並列実行した際で実行の結果が異なる現象。</li>
+            </ul>
+
+            <p>　上記のような現象を防ぐために、トランザクションの「隔離レベル」の設定を行いますが、基本的に隔離レベルが高いほど、データの一貫性は保たれますが、パフォーマンスは低下します。逆に隔離レベルが低いと、パフォーマンスは向上しますが、データの一貫性が保たれません。
+                それらを踏まえて、隔離レベルについてを確認しましょう。
+            </p>
+
+            <div class="figure">
+            <img src="images/Isoletion_level.png" alt="トランザクション隔離レベル図解" class="img-diagram">
+            <p class="figcaption">図6：トランザクション隔離レベル図解</p>
+            </div>
+
+            <p>　表の下側に向かうほど隔離レベルは高くなります。分離レベルごとにどのようにして現象を防ぐのかは後ほど実際に触りながら説明していくので、ここではそれぞれのレベルごとにどの現象を防ぐことができるのかを確認しておきましょう。
+                また、PostgreSQL 17では、デフォルトの隔離レベルは「Read Committed」になっており、基本的には「Read Committed」と「Serializable」の2つの隔離レベルに集約されます。</p>
+            </p>
+
+            <aside class="column-box">
+                <span class="column-title">ACID特性のI</span>
+                <div class="column-content">
+                    <p>　ACID特性のI（Isolation：隔離性）は、トランザクションが他のトランザクションと独立して実行されることを意味します。つまり、複数のトランザクションが同時に実行されても、それぞれのトランザクションは他のトランザクションの影響を受けず、一貫性のある結果を保つことを保証します。
+                        その隔離性の強さを表現しているのが、先ほどのトランザクションの隔離レベルです。隔離レベルが高いほど、トランザクションは他のトランザクションからより独立して実行されることになります。</p>
+                    </p>
+                    <p>　このようにACID特性はそれぞれが基本的なデータベースの特性をまとめている重要な概念であるので、資格取得後もしっかりと理解しておくと良いでしょう。</p>
+                </div>
+            </aside>
+
+            <div class="quiz-card">
+                <p><strong>復習問題</strong></p>
+                <p><strong>問1:</strong> データベースにおいて、あるトランザクションAが「共有ロック」を取得しているレコードを読み取る際に、トランザクションBはそのレコードに対して何を実行可能か？</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans2-1')">答えを表示</button>
+                <p id="ans2-1" class="answer">データの読み取り</p>
+            
+                <p><strong>問2:</strong> RDBMSにおいて、排他ロックを取得するSQL文は？</p>
+        
+                <button class="ans-btn" onclick="toggleAnswer('ans2-2')">答えを表示</button>
+                <p id="ans2-2" class="answer">SELECT ... FOR UPDATE</p>
+
+                <p><strong>問3:</strong> あるトランザクションA、BがA鍵、B鍵を取得し、互にもう一方の鍵が取得されたレコードに対してデータを読み取る際に「デッドロック」が発生した。これによってデータベースの何が低下するか？</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans2-3')">答えを表示</button>
+                <p id="ans2-3" class="answer">パフォーマンス。デッドロックが発生すると、トランザクションは中断され、再試行が必要になるため、システム全体のパフォーマンスが低下します。</p>
+
+                <p><strong>問4:</strong> postgresqlのデフォルトの隔離レベルは？</p>
+                <button class="ans-btn" onclick="toggleAnswer('ans2-4')">答えを表示</button>
+                <p id="ans2-4" class="answer">「Read Committed」</p>
+            </div>
         </section>
 
         <section id="env">
             <h2>2. 実験環境の準備</h2>
-            <p>以下のコマンドを使用して、実験用のDocker環境を起動してください。</p>
+            <p>　ここからは実際に、実験を行うために環境の準備を行いましょう。</p>
+            <p>　※注:この準備方法は2026年2月時点でのものです。Dockerのインストール方法などに変化が生じている可能性があります。ご了承ください。</p>
+            <p>　まず、Dockerがインストールされていない場合は、以下のリンクからDockerをインストール方法を検索してインストールを行ってください。<br>
+                <a href=https://www.google.com/search?q=DockerDesktop+%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB+windows>Docker Desktop Install (Windows)</a> @Google検索
+            </p>
+
+            <p>　インストールを終えたら、Docker Desktopを起動してください。</p>
+            <div class="figure">
+            <img src="images/DkDt_running.png" alt="Docker Desktop起動確認図解" class="img-diagram">
+            <p class="figcaption">図7：Docker Desktop起動確認</p>
+            </div>
+            <p>　タスクトレイのアイコンから起動できているのかを確認できるので、図7のようになっているかを確認してください。
+                起動した後は、設定を変更します。図8を参考に、WSL2を使用するように設定してください。
+            </p>
+            <div class="figure">
+            <img src="images/DkDt_settingWSL2.png" alt="Docker Desktop設定変更図解" class="img-diagram">
+            <p class="figcaption">図8：Docker Desktop WSL2設定確認</p>
+            </div>
+            <p>　設定を変更を完了した後に、ターミナル(PowerShell)を開き、以下のコマンドを実行してください。</p>
             <div class="code-block">
                 <div class="code-header">Terminal</div>
-                <pre><code>docker compose up -d</code></pre>
+                <pre><code>docker run --rm hello-world</code></pre>
+            </div>
+            <p>　上記のコマンドを実行して、以下のような出力が表示されれば、Dockerのインストールと設定は完了です。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>PS C:\Users\XXX> docker run --rm hello-world
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (amd64)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+
+To try something more ambitious, you can run an Ubuntu container with:
+ $ docker run -it ubuntu bash
+
+Share images, automate workflows, and more with a free Docker ID:
+ https://hub.docker.com/
+
+For more examples and ideas, visit:
+ https://docs.docker.com/get-started/</code></pre>
+            </div>
+            <p>　上記のインストール方法とこれからのDockerの使用方法ははじめに紹介したサイトに書かれている事を参考にしているため詳細はそちらを参考にしてください。<br>
+                <a href=https://takeshiwada1980.github.io/DB-2025/lecture01.html#docker-desktop-%E3%81%AE%E3%82%A4%E3%83%B3%E3%82%B9%E3%83%88%E3%83%BC%E3%83%AB>Docker Desktopのインストール方法</a></p>
+
+            <P>　次に<em>Docker Hub</em>からデータベースのイメージを取得して、実験用の環境を整えましょう。PostgreSQLとDBgateのイメージを以下のコマンドで取得してください。</P>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>docker image pull postgres:17.6
+docker image pull dbgate/dbgate:6.6.3</code></pre>
+            </div>
+            <p>　上記のコマンドを実行した後に以下のコマンドを実行し、postgresとdbgate/dbgateの名前が表示されていたら、イメージの取得は完了です。</p>
+            <div class="code-block">
+                <div class="code-header">Terminal</div>
+                <pre><code>docker images</code></pre>
             </div>
         </section>
 
@@ -152,7 +299,7 @@ SELECT status_value FROM devices WHERE id = 1;</code></pre>
     </main>
 
     <footer>
-        <p>&copy; 2026 Your Name - データベース工学 課題</p>
+        <p>&copy; 2026 Nakano0830 - データベース工学 課題</p>
     </footer>
 
     <script src="script.js"></script>
